@@ -1,1 +1,397 @@
+!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visura | AI Skin & Eye Care</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-color: #adcfe6;
+            --card-bg: #bcdefa;
+            --primary-blue: #7287e7;
+            --success-green: #84e6ad;
+            --text-main: #181717;
+            --bot-bubble: #ebbb84;
+            --user-bubble: #969799;
+            --highlight-box: #eedf95;
+            --border-color: #919394;
+            --h-size: 1.5rem;
+            --p-size: 0.95rem;
+        }
+
+        body.dark-mode {
+            --bg-color: #524f4f;
+            --card-bg: #5a3a3a;
+            --text-main: #f19090;
+            --bot-bubble: #2d2d2d;
+            --border-color: #573a3a;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: 0.3s ease;
+            font-size: var(--p-size);
+        }
+
+        .container { width: 100%; max-width: 600px; position: relative; }
+
+        header {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .brand-name {
+            font-size: var(--h-size);
+            font-weight: 700;
+            background: var(--primary-blue);
+            color: rgb(56, 14, 243);
+            padding: 4px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(74, 144, 226, 0.3);
+        }
+
+        h3 { font-size: 1.1rem; font-weight: 600; margin-top: 0; }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(219, 128, 128, 0.05);
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .action-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; width: 100%; }
+        .action-card { 
+            background: var(--card-bg); border-radius: 12px; padding: 15px; text-align: center; 
+            cursor: pointer; border: 1px solid var(--border-color); transition: 0.2s;
+            font-size: 0.8rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .action-card:hover { border-color: var(--primary-blue); transform: translateY(-2px); }
+
+        .welcome-section {
+            background: linear-gradient(135deg, #e0f0ff 0%, var(--card-bg) 100%);
+            border-left: 5px solid var(--primary-blue);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        #settings-trigger-box {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+            background: var(--card-bg);
+            padding: 8px 12px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+        }
+
+        #chat-widget { position: fixed; bottom: 20px; right: 20px; z-index: 1000; }
+        #chat-btn { width: 60px; height: 60px; background: var(--primary-blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-size: 24px; }
+        
+        #chat-box { display: none; position: fixed; bottom: 90px; right: 20px; width: 300px; height: 400px; background: var(--card-bg); border-radius: 15px; border: 1px solid var(--border-color); flex-direction: column; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+        .chat-header { background: var(--primary-blue); color: white; padding: 10px 15px; font-weight: 600; }
+        #chat-content { flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .msg { padding: 8px 12px; border-radius: 15px; font-size: 0.85rem; max-width: 80%; }
+        .bot { background: var(--bot-bubble); align-self: flex-start; }
+        .user { background: var(--primary-blue); color: white; align-self: flex-end; }
+        .chat-input { display: flex; border-top: 1px solid var(--border-color); padding: 5px; }
+        .chat-input input { flex: 1; border: none; padding: 10px; outline: none; background: transparent; color: var(--text-main); }
+
+        .meter-bg { background: #eee; height: 12px; border-radius: 10px; margin: 15px 0; overflow: hidden; }
+        #severity-bar { height: 100%; width: 0%; transition: width 0.5s ease; background: green; }
+
+        #webcam-container canvas { width: 100%; border-radius: 12px; margin-top: 10px; border: 2px solid var(--primary-blue); }
+
+        .feature-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 3000; justify-content: center; align-items: center;
+            backdrop-filter: blur(5px);
+        }
+
+        #settings-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center;
+            backdrop-filter: blur(4px);
+        }
+        .settings-content, .modal-content { background: var(--card-bg); width: 85%; max-width: 350px; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+
+        .upload-btn {
+            background: var(--primary-blue); color: white; border: none; padding: 12px; border-radius: 8px; 
+            width: 100%; font-weight: 600; cursor: pointer; margin-top: 10px;
+        }
+
+        .prescription-box { border-left: 5px solid var(--success-green); background: rgba(46, 204, 113, 0.1); padding: 15px; border-radius: 8px; margin-top: 10px; }
+        
+        .ai-insight-warning {
+            color: #856404;
+            background-color: #f8db7d;
+            border: 1px solid #ffeeba;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .modal-input { width: 100%; padding: 10px; margin: 10px 0; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-main); }
+        
+        .input-section { margin-bottom: 20px; }
+        .input-label { font-weight: 600; display: block; margin-bottom: 8px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<div id="settings-trigger-box">
+    <div onclick="toggleSettings()" style="cursor: pointer; font-weight: 600;">⚙️ <span id="set-label">Settings</span></div>
+</div>
+
+<div class="container">
+    <header>
+        <div class="brand-name" id="title">Visura</div>
+    </header>
+
+    <div class="welcome-section">
+        <p id="welcome-msg"><strong>Welcome to our website!</strong> We provide AI insights for skin and eye conditions.</p>
+    </div>
+
+    <div class="action-grid">
+        <div class="action-card" onclick="toggleAppointment()">🏥<br><strong id="apt-label">Appointment</strong></div>
+        <div class="action-card" onclick="toggleMeeting()">💻<br><strong id="meet-label">Online Consultation</strong></div>
+        <div class="action-card" onclick="document.getElementById('imageUpload').click()">📄<br><strong>Upload Prescription</strong></div>
+    </div>
+
+    <div class="card">
+        <h3 id="scan-label">Live AI Scanner</h3>
+        <button type="button" class="upload-btn" id="start-webcam-btn" onclick="init()">Start Live Camera</button>
+        <div id="webcam-container"></div>
+        <div id="label-container"></div>
+    </div>
+
+    <div class="card">
+        
+        <div class="input-section">
+            <span class="input-label">Describe Concerns</span>
+            <select id="issueType" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 5px;">
+                <option value="skin">Skin Issue</option>
+                <option value="eye">Eye Issue</option>
+            </select>
+            <textarea id="problemDesc" placeholder="Describe your symptoms in detail..." style="width: 100%; height: 80px; border-radius: 5px; border: 1px solid #ddd;"></textarea>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;">
+
+        <div class="input-section">
+            <div class="ai-insight-warning">⚠️ AI Insight: For accurate results, capture the photo in natural daylight and ensure the focus is sharp.</div>
+            <span class="input-label">Upload Image</span>
+            <input type="file" id="imageUpload" accept="image/*" style="margin-bottom: 10px;">
+            <button class="upload-btn" onclick="startAnalysis()">Analyze Uploaded Photo</button>
+        </div>
+    </div>
+
+    <div id="result-screen" class="card" style="display: none;">
+        <h2 style="color: var(--primary-blue); margin-top:0;">Analysis Results</h2>
+        <p><strong>Condition:</strong> <span id="condition-name">...</span></p>
+        <div class="meter-bg"><div id="severity-bar"></div></div>
+        <p id="severity-text" style="font-size: 12px; font-weight: bold;"></p>
+        
+        <div id="prescription-card" class="prescription-box">
+            <h4>💊 Prescription Recommendation</h4>
+            <p id="rx-content" style="font-size: 13px;">Analyzing symptoms for prescription...</p>
+        </div>
+    </div>
+
+    <p class="medical-disclaimer"> Medical Disclaimer: This is an AI prototype. Always consult a human doctor.</p>
+</div>
+
+<div id="chat-widget">
+    <div id="chat-box">
+        <div class="chat-header">Visura Assistant</div>
+        <div id="chat-content">
+            <div class="msg bot">Hello! How can I help you today?</div>
+        </div>
+        <div class="chat-input">
+            <input type="text" id="chat-in" placeholder="Type a message..." onkeypress="if(event.key==='Enter') sendChat()">
+        </div>
+    </div>
+    <div id="chat-btn" onclick="toggleChat()">💬</div>
+</div>
+
+<div id="appointment-modal" class="feature-modal" onclick="toggleAppointment()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <h3>Book Appointment</h3>
+        <input type="text" placeholder="Full Name" class="modal-input">
+        <input type="date" class="modal-input">
+        <select class="modal-input"><option>Select Specialist</option><option>Dermatologist</option><option>Ophthalmologist</option></select>
+        <button class="upload-btn" onclick="alert('Booking Confirmed!'); toggleAppointment()">Confirm Booking</button>
+        <button class="upload-btn" onclick="toggleAppointment()" style="background: #95a5a6;">Close</button>
+    </div>
+</div>
+
+<div id="meeting-modal" class="feature-modal" onclick="toggleMeeting()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <h3>Secure Video Consultation</h3>
+        <div style="width: 100%; height: 150px; background: #000; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white;">🎥 Video Feed Waiting...</div>
+        <p style="font-size: 12px; text-align: center; margin-top: 10px;">Connecting you to a certified professional.</p>
+        <button class="upload-btn" style="background: var(--success-green);" onclick="alert('Connecting to doctor...')">Join Call</button>
+        <button class="upload-btn" onclick="toggleMeeting()" style="background: #95a5a6;">End Session</button>
+    </div>
+</div>
+
+<div id="settings-modal" onclick="toggleSettings()">
+    <div class="settings-content" onclick="event.stopPropagation()">
+        <h3>Settings</h3>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+            <span>Dark Mode</span>
+            <input type="checkbox" id="darkSwitch" onchange="toggleDarkMode()">
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+            <span>Language</span>
+            <select id="langSelect" onchange="updateLang()"><option value="en">English</option><option value="hi">Hindi</option></select>
+        </div>
+        <button class="upload-btn" onclick="toggleSettings()" style="background: #95a5a6;">Close</button>
+    </div>
+</div>
+
+<script>
+    const URL = "https://teachablemachine.withgoogle.com/models/YOUR_MODEL_ID/"; 
+    let model, webcam, labelContainer, maxPredictions;
+
+    function toggleAppointment() {
+        const modal = document.getElementById('appointment-modal');
+        modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    function toggleMeeting() {
+        const modal = document.getElementById('meeting-modal');
+        modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    function toggleSettings() {
+        const modal = document.getElementById('settings-modal');
+        modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    function toggleDarkMode() {
+        document.body.classList.toggle('dark-mode');
+        localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+    }
+
+    function updateLang() {
+        const lang = document.getElementById('langSelect').value;
+        const texts = {
+            en: { welcome: "<strong>Welcome to our website!</strong> We provide AI insights for skin and eye conditions.", apt: "Appointment", meet: "Online Consultation", scan: "Live AI Scanner" },
+            hi: { welcome: "<strong>हमारी वेबसाइट पर आपका स्वागत है!</strong> हम त्वचा और आंखों की स्थितियों के लिए AI अंतर्दृष्टि प्रदान करते हैं।", apt: "नियुक्ति", meet: "ऑनलाइन परामर्श", scan: "लाइव AI स्कैनर" }
+        };
+        document.getElementById('welcome-msg').innerHTML = texts[lang].welcome;
+        document.getElementById('apt-label').innerText = texts[lang].apt;
+        document.getElementById('meet-label').innerText = texts[lang].meet;
+        document.getElementById('scan-label').innerText = texts[lang].scan;
+    }
+
+    function toggleChat() {
+        const box = document.getElementById('chat-box');
+        box.style.display = (box.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    function sendChat() {
+        const input = document.getElementById('chat-in');
+        const content = document.getElementById('chat-content');
+        if(!input.value.trim()) return;
+
+        content.innerHTML += `<div class="msg user">${input.value}</div>`;
+        const val = input.value.toLowerCase();
+        input.value = '';
+
+        setTimeout(() => {
+            let reply = "I'm here to help. Try scanning or uploading a photo!";
+            if(val.includes("hello")) reply = "Hi there! How are you feeling?";
+            if(val.includes("doctor")) reply = "You can book an appointment using the grid above.";
+            content.innerHTML += `<div class="msg bot">${reply}</div>`;
+            content.scrollTop = content.scrollHeight;
+        }, 600);
+    }
+
+    async function init() {
+        try {
+            const btn = document.getElementById('start-webcam-btn');
+            btn.innerText = "Loading AI Model...";
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+            const flip = true;
+            webcam = new tmImage.Webcam(400, 400, flip);
+            await webcam.setup();
+            await webcam.play();
+            btn.style.display = "none";
+            window.requestAnimationFrame(loop);
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            labelContainer = document.getElementById("label-container");
+            for (let i = 0; i < maxPredictions; i++) {
+                labelContainer.appendChild(document.createElement("div"));
+            }
+        } catch (e) {
+            alert("Error accessing camera. Please ensure you provided permissions and are using HTTPS.");
+            console.error(e);
+        }
+    }
+
+    async function loop() { webcam.update(); await predict(); window.requestAnimationFrame(loop); }
+
+    async function predict() {
+        const prediction = await model.predict(webcam.canvas);
+        for (let i = 0; i < maxPredictions; i++) {
+            const classPrediction = prediction[i].className + ": " + (prediction[i].probability * 100).toFixed(0) + "%";
+            labelContainer.childNodes[i].innerHTML = classPrediction;
+        }
+    }
+
+    async function startAnalysis() {
+        const fileInput = document.getElementById('imageUpload');
+        if (fileInput.files.length === 0) { alert("Please upload an image first!"); return; }
+        document.getElementById('result-screen').style.display = 'block';
+        document.getElementById('condition-name').innerText = "Analyzing Symptoms...";
+        setTimeout(() => {
+            const bar = document.getElementById('severity-bar');
+            bar.style.width = "65%";
+            bar.style.background = "orange";
+            document.getElementById('severity-text').innerText = "65% - Moderate Concern";
+            document.getElementById('rx-content').innerText = "Recommended: Apply soothing lotion and avoid sunlight.";
+        }, 1000);
+    }
+
+    window.onload = () => {
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
+            document.getElementById('darkSwitch').checked = true;
+        }
+    };
+</script>
+
+</body>
+</html>
+
 
